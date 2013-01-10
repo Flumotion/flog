@@ -20,7 +20,7 @@ import logging
 
 from twisted.trial import unittest
 
-import log
+from log import log
 
 __version__ = "$Rev$"
 
