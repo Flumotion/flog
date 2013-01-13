@@ -1050,13 +1050,33 @@ class LogHandler(logging.Handler):
         logging.Handler.__init__(self)
         self.logCategory = logCategory
         self.targetModule = targetModule
+        self._loggingCallDepth = None
 
     def emit(self, record):
         level = stdLevelToLogLevel(record.levelno)
         if _canShortcutLogging(self.logCategory, level):
             return
 
-        filename, lineno = getFileLine(-1, self.targetModule)
+        # the first time, extract how many calls in the traceback are in
+        # the logging module or our log module, which we want to ignore as the
+        # caller
+
+        if not self._loggingCallDepth:
+            stack = traceback.extract_stack()
+            depth = 0
+            for f in stack[::-1]:
+                (filename, line, func, text) = f
+                if filename.find('logging/__init__.py') == -1 \
+                    and filename.find('log/log.py') == -1:
+                    break
+                depth += 1
+
+            doLog(DEBUG, None, 'log', 'logging log calls at depth %d',
+                (depth, ))
+            self._loggingCallDepth = -depth
+
+        filename, lineno = getFileLine(self._loggingCallDepth,
+            self.targetModule)
         doLog(level, None, self.logCategory,
               self.format(record), None, 0,
               scrubFilename(filename), lineno)
